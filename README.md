@@ -11,4 +11,4 @@ Short description of files follows:
 
 **iter.cpp**: iterates over all the cells and faces of a mesh and returns their respective n-dimensional Lebesgue measures, as well as sums of those, separately for boundary and interior entities.
 
-**normals.cpp**: iterating over all the cells and then over each cell's faces, this code returns outward normal vectors for each cell's face in the form of *TNL::Containers::Vector* of smaller *TNL::Containers::Vector* entities, which contain the normals of type *PointType*, which is again a *TNL::Containers::Vector*. The word vector is a little overloaded here.
+**normals.cpp**: iterating over all the cells and then over each cell's faces, this code returns *unit outward normal vectors* for each cell's face in the form of *TNL::Containers::Vector* of smaller *TNL::Containers::Vector* entities, which contain the normals of type *PointType*, which is again a *TNL::Containers::Vector*. The word vector is a little overloaded here.
