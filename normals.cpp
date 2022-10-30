@@ -132,12 +132,17 @@ bool iterateMesh( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fi
 
 
 
-
+template< typename V >
+V normalize(V vector)
+{
+    V u = (1.0 / l2Norm( vector )) * vector;
+    return u;
+}
 
 template< typename MeshConfig >
 bool getNormals( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
 {
-    using MeshType = Mesh< MeshConfig, Devices::Host >; // Host bezi jednovlaknove
+    using MeshType = Mesh< MeshConfig, Devices::Host >;
     using RealType = typename MeshType::RealType;
     using GlobalIndexType = typename MeshType::GlobalIndexType;
     using LocalIndexType = typename MeshType::LocalIndexType;
@@ -202,7 +207,7 @@ bool getNormals( const Mesh< MeshConfig, Devices::Host >& mesh, const std::strin
                                  - mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+1)%3 ));
             std::cout << "Face vector: " << faceVector;
             PointType outwardNormal = { faceVector[1], -faceVector[0] };
-            normals[ i ][ j ] = outwardNormal;
+            normals[ i ][ j ] = normalize< PointType >(outwardNormal);
             std::cout << ", outward normal vector: " << outwardNormal;
         }
     }
