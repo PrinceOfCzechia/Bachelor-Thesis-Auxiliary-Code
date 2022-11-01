@@ -58,12 +58,25 @@ V normalize(V v)
 }
 
 template< typename V >
-double f( V x )
+double f( V v )
 {
-    double x1 = x[0];
-    double x2 = x[1];
+    double x = v[0];
+    double y = v[1];
 
-    return x1*x2;
+    return x*y;
+}
+
+// manually computed gradient of the function above
+template< typename V >
+V angrad( V v )
+{
+    double x = v[0];
+    double y = v[1];
+
+    V grad = { 0, 0 };
+    grad[0] = y;
+    grad[1] = x;
+    return grad;
 }
 
 template< typename MeshConfig >
@@ -80,25 +93,28 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
     const int facesCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() - 1 >();
     const int cellsCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() >();
 
-    Containers::StaticVector< 8, PointType > cellCenters;
+    // Containers::StaticVector< 8, PointType > cellCenters;
+    Containers::Vector< PointType, Devices::Host > cellCenters ( cellsCount );
     for(int i = 0; i < cellsCount; i++)
     {
         auto cell = mesh.template getEntity< MeshType::getMeshDimension() >( i );
         PointType center = getEntityCenter( mesh, cell );
-        std::cout << "\nCell " << i << ", center: " << center;
+        // std::cout << "\nCell " << i << ", center: " << center;
     }
 
-    Containers::StaticVector< 15, PointType > faceCenters;
+    // Containers::StaticVector< 15, PointType > faceCenters;
+    Containers::Vector< PointType, Devices::Host > faceCenters ( facesCount );
     for(int i = 0; i < facesCount; i++)
     {
         auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
         PointType center = getEntityCenter( mesh, face );
-        std::cout << "\nFace " << i << ", center: " << center;
+        // std::cout << "\nFace " << i << ", center: " << center;
     }
 
     std::cout << std::endl;
 
     Containers::Vector< PointType, TNL::Devices::Host > grads ( cellsCount );
+    Containers::Vector< PointType, TNL::Devices::Host > analytical ( cellsCount );
 
     for( int i = 0; i < cellsCount; i++ )
     {
@@ -108,25 +124,40 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
         {
             const auto faceIdx = cell.template getSubentityIndex< MeshType::getMeshDimension() - 1 >( j );
             const auto sigma = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( faceIdx );
-            std::cout << "\nCell " << i << ", local face index: " << j << ", global face index: " << faceIdx << std::endl;
+
+            //std::cout << "\nCell " << i << ", local face index: " << j << ", global face index: " << faceIdx << std::endl;
+
             PointType faceVector = mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+2)%3 )) 
                                  - mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+1)%3 ));
-            PointType outwardNormal = { faceVector[1], -faceVector[0] };
-            std::cout << "Outward normal vector n_sigma: " << outwardNormal;
+
+            PointType outwardNormal = normalize< PointType >( { faceVector[1], -faceVector[0] } );
+            //std::cout << "Outward normal vector n_sigma: " << outwardNormal;
+
             PointType x_sigma = getEntityCenter( mesh, sigma );
-            std::cout << ", face center: " << x_sigma << "\n";
+            //std::cout << ", face center: " << x_sigma << "\n";
+
             double f_sigma = f< PointType >( x_sigma );
-            sum += f_sigma * getEntityMeasure( mesh, sigma ) * outwardNormal;
+            sum += getEntityMeasure( mesh, sigma ) * f_sigma * outwardNormal;
         }
-        PointType grad = 1/getEntityMeasure( mesh, cell ) * sum;
+
+        PointType cellCenter = getEntityCenter( mesh, cell);
+        analytical[ i ] = angrad< PointType >( cellCenter );
+        
+        PointType grad = ( 1.0 / getEntityMeasure( mesh, cell ) ) * sum;
         grads[ i ] = grad;
     }
 
-    std::cout << "\nNumerical approximation of gradient in cell centers: " << std::endl;
+    // double compoundError = 0;
+    std::cout << "\nNumerical approximation of gradient in cell centers (row ~ cell index): " << std::endl;
     for(int i = 0; i < cellsCount; i++)
     {
-        std::cout << "Cell " << i << ": " << grads[i] << std::endl;
+        PointType error = grads[ i ] - analytical[ i ];
+        std::cout << "Numerical " << ": " << grads[ i ] << ", analytical: " << analytical[ i ]
+                  << ", with error: " << l2Norm( error ) << std::endl;
+        // compoundError += l2Norm( error );
     }
+
+    // std::cout << "Compound error: " << compoundError / cellsCount << std::endl;
 
     return true;
 }
