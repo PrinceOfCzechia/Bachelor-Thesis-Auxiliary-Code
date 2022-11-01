@@ -1,5 +1,5 @@
 # Bachelor-Thesis-Auxiliary-Code
-I decided to upload all the code I've been writing for my bachelor thesis to have it accessible from anywhere and stored somewere safe.
+I decided to upload all the code I've been writing for my bachelor thesis to have it accessible from anywhere and stored somewhere safe.
 
 This probably won't be of much use for anyone besides me and next generations of students programming numerics for [Template Numerical Library](https://gitlab.com/tnl-project/tnl).
 
@@ -12,3 +12,5 @@ Short description of files follows:
 **iter.cpp**: iterates over all the cells and faces of a mesh and returns their respective n-dimensional Lebesgue measures, as well as sums of those, separately for boundary and interior entities.
 
 **normals.cpp**: iterating over all the cells and then over each cell's faces, this code returns *unit outward normal vectors* for each cell's face in the form of *TNL::Containers::Vector* of smaller *TNL::Containers::Vector* entities, which contain the normals of type *PointType*, which is again a *TNL::Containers::Vector*. The word vector is a little overloaded here.
+
+**numgrad.cpp**: the backbone of it all, this is the numerical scheme which computes gradient inside a cell. Based on Generalized Stokes' Theorem, it translates a volume integral of *grad(f)* to a surface integral of just *f*. With help of some useful approximations, the code converges to analytical gradient fairly quickly. The convergence is tested on analytical functions, whose analytical gradient is calculated manually in the function *angrad*.
