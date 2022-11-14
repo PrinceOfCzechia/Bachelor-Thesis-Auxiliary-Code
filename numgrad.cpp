@@ -39,16 +39,6 @@ template<> struct MeshLocalIndexTag< MyConfigTag, short int >{ static constexpr 
 }  // namespace Meshes
 }  // namespace TNL
 
-    // normala: souradnice vrcholu na stene, pravdepodobne getCenter()
-    // viz clanek v mailu
-    // na priste implementovat a otestovat
-    // check python for vtk meshes
-    // deformace pro kontrolu spravnosti vypoctu, provest primo v programu (rotace >>> zkoseni)
-    // pomoci fce getPoints
-    // PointType StaticVector, PointArrayType Array< PointType >, kdyz to jde, pouzit typ auto
-    // auto Points = mesh.getPoints()[ pointIdx ];
-    // zobrazit v ParaView ?? pomoci VTKwriter.h ?? spis ne
-    // kdyz hotovo, pokracovat ve schematu
 
 template< typename V >
 V normalize(V v)
@@ -63,7 +53,8 @@ double f( V v )
     double x = v[0];
     double y = v[1];
 
-    return x*y;
+    return x*x*y*y;
+    // return  x*x*sin(x*x + y*y) + y*y*sin(x*x + y*y) ;
 }
 
 // manually computed gradient of the function above
@@ -74,8 +65,10 @@ V angrad( V v )
     double y = v[1];
 
     V grad = { 0, 0 };
-    grad[0] = y;
-    grad[1] = x;
+    grad[0] = 2*x*y*y;
+    grad[1] = 2*x*x*y;
+    // grad[0] = 2*x*sin(x*x+y*y) + 2*x*x*x*cos(x*x+y*y) + 2*x*y*cos(x*x+y*y);
+    // grad[1] = 2*x*y*cos(x*x+y*y) + 2*y*y*y*cos(x*x+y*y) + 2*y*sin(x*x+y*y);
     return grad;
 }
 
@@ -147,17 +140,21 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
         grads[ i ] = grad;
     }
 
-    // double compoundError = 0;
-    std::cout << "\nNumerical approximation of gradient in cell centers (row ~ cell index): " << std::endl;
+    double compoundError = 0;
+    // std::cout << "\nNumerical approximation of gradient in cell centers (row ~ cell index): " << std::endl;
     for(int i = 0; i < cellsCount; i++)
     {
         PointType error = grads[ i ] - analytical[ i ];
-        std::cout << "Numerical " << ": " << grads[ i ] << ", analytical: " << analytical[ i ]
-                  << ", with error: " << l2Norm( error ) << std::endl;
-        // compoundError += l2Norm( error );
+        /*std::cout << "Numerical " << ": " << grads[ i ] << ", analytical: " << analytical[ i ]
+                  << ", with error: " << l2Norm( error ) << std::endl;*/
+        compoundError += l2Norm( error ); // ?? times cell measure ??
+        // add convergence order
+        // iteration step manually through gmesh
+        // expecting value around 1
+        // dependent on function, oscilation => errors
     }
 
-    // std::cout << "Compound error: " << compoundError / cellsCount << std::endl;
+    std::cout << "Compound average error: " << compoundError / cellsCount << std::endl;
 
     return true;
 }
