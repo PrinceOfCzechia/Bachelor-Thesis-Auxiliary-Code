@@ -1,7 +1,7 @@
 # Bachelor-Thesis-Auxiliary-Code
 I decided to upload all the code I've been writing for my bachelor thesis to have it accessible from anywhere and stored somewhere safe.
 
-This probably won't be of much use for anyone besides me and next generations of students programming numerics for [Template Numerical Library](https://gitlab.com/tnl-project/tnl).
+This probably won't be of much use for anyone besides me and next generations of students programming numerics for [Template Numerical Library](https://gitlab.com/tnl-project/tnl). To run any of the C++ code, put the desired file, *Makefile* and *config.mk* in a single folder and run the **make** commnad.
 
 The code is a mixture of my own contributions, samples from TNL tutorials and the recommended *Makefile* and *config.mk* provided at TNL's GitLab
 
@@ -15,4 +15,6 @@ Short description of files follows:
 
 **numgrad.cpp**: the backbone of it all, this is the numerical scheme which computes gradient inside a cell. Based on Generalized Stokes' Theorem, it translates a volume integral of *grad(f)* to a surface integral of just *f*. This approximation converges to the analytical (real) gradient of *f*. The convergence is tested on analytical functions, whose analytical gradient is calculated manually in the function *angrad*.
 
-**autodiff.ipynb**: tests the handcalculated derivatives in comparison with the results of differentiating with the python library mygrad
+**autodiff.ipynb**: tests the handcalculated derivatives in comparison with the results of differentiating with the python library *mygrad*.
+
+**triangleOptimization**: computes all derivatives required to actualy assemble a *2N-dimensional vector*, a gradient of the mesh for numerical gradient approximation.
