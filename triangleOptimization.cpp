@@ -76,12 +76,30 @@ V angrad( V v )
     return grad;
 }
 
-// TODO test
+// face center
 template< typename V >
 V x_sigma( V v1, V v2)
 {
-    return v2 - v1;
+    return 0.5 * ( v2 + v1 );
 }
+
+template< typename t >
+t x_sigma_0( t x00, t x10 ) { return 0.5 * ( x00 + x10 ); }
+
+template< typename t >
+t x_sigma_1(t x01, t x11 ) { return 0.5 * ( x01 + x11 ); }
+
+template< typename t >
+t d0_x_sigma_0( t x00, t x10 ) { return 0.5; }
+
+template< typename t >
+t d0_x_sigma_1( t x00, t x10 ) { return 0; }
+
+template< typename t >
+t d1_x_sigma_0( t x00, t x10 ) { return 0; }
+
+template< typename t >
+t d1_x_sigma_1( t x00, t x10 ) { return 0.5; }
 
 // face measure
 template< typename t >
