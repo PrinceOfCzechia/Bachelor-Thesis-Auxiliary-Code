@@ -89,6 +89,7 @@ t x_sigma_0( t x00, t x10 ) { return 0.5 * ( x00 + x10 ); }
 template< typename t >
 t x_sigma_1(t x01, t x11 ) { return 0.5 * ( x01 + x11 ); }
 
+// TODO maybe remove arguments, but this is more instructive
 template< typename t >
 t d0_x_sigma_0( t x00, t x10 ) { return 0.5; }
 
@@ -100,6 +101,16 @@ t d1_x_sigma_0( t x00, t x10 ) { return 0; }
 
 template< typename t >
 t d1_x_sigma_1( t x00, t x10 ) { return 0.5; }
+
+template< typename t >
+t d_x_sigma( t x00, t x01, t x10, t x11, int point, bool component )
+{
+    if( point == 0, component == 0 ) return d0_x_sigma_0( x00, x10 );
+    else if( point == 1, component == 0  ) return d1_x_sigma_0( x00, x10 );
+    else if( point == 0, component == 1 ) return d0_x_sigma_1( x10, x11 );
+    else if( point == 1, component == 1 ) return d1_x_sigma_1( x10, x11 );
+    else return 0;
+}
 
 // face measure
 template< typename t >
@@ -317,7 +328,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         double auxSum = 0;
         for( int i = 0; i < 3; i++ )
         {
-            // m1 in points (i+1)%3 and (i+2)%3 becuase of mesh indexing, v^0 is opposite to sigma^0
+            // m1 in points (i+1)%3 and (i+2)%3 becuase of mesh indexing, vertex^0 is opposite to sigma^0
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
                       f< PointType >( x_sigma< PointType >( cp[ (i+1) ], cp[ (i+1)%3 ]  ) ) *
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
@@ -337,7 +348,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 0; i < 3; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0.5 * //1/2 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,0) * //1/2 from d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -381,7 +392,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 0; i < 3; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0 * //0 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,1) * //0 from d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -447,7 +458,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 1; i < 4; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0.5 * //d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,0) * //d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -491,7 +502,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 1; i < 4; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0 * //0 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,1) * //0 from d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -557,7 +568,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 2; i < 5; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0.5 * //d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,0) * //d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -601,7 +612,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 2; i < 5; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * 0 * // 0 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 0 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,1) * // 0 from d x_sigma
                       n0< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -668,7 +679,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 0; i < 3; i++ )
         {
             auxSum += m1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * 0 * // 0 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,1) * // 0 from d x_sigma
                       n1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -710,7 +721,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 0; i < 3; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * 0.5 * // 1/2 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,0) * // 1/2 from d x_sigma
                       n1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -778,7 +789,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 1; i < 4; i++ )
         {
             auxSum += m1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * 0 * // 0 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,1) * // 0 from d x_sigma
                       n1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -820,7 +831,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         for( int i = 1; i < 4; i++ )
         {
             auxSum += m1< double >( cp[ (i+1)%3 ][ 0 ], cp[ (i+2)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ], cp[ (i+2)%3 ][ 1 ] ) *
-                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * 0.5 * // 1/2 from d x_sigma
+                      angrad< PointType >( x_sigma< PointType >(cp[ (i+1)%3 ], cp[ i%3 ]) )[ 1 ] * d_x_sigma< double >(cp[0][0],cp[0][1],cp[1][0],cp[1][1],i,0) * // 1/2 from d x_sigma
                       n1< double >( cp[ i%3 ][ 0 ], cp[ i%3 ][ 1 ], cp[ (i+1)%3 ][ 0 ], cp[ (i+1)%3 ][ 1 ] );
         }
         d_nabla_h += m2 * auxSum;
@@ -949,6 +960,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
     }
 
+    /*
     std::cout << "dk1_nabla_h" << std::endl; 
     for( int i = 0; i < cellsCount; i++ )
     {
@@ -962,6 +974,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         std::cout << dk2_nabla_h[ i ];
     }
     std::cout << std::endl;
+    */
 
     Containers::Vector< PointType, Devices::Host > nabla_mesh( cellsCount );
     nabla_mesh = 0;
