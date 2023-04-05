@@ -58,7 +58,8 @@ double f( V v )
     double x = v[0];
     double y = v[1];
 
-    return TNL::sin( x );
+    return x*x*y*y;
+    // return TNL::sin(x);
     // return  x*x*sin(x*x + y*y) + y*y*sin(x*x + y*y) ;
 }
 
@@ -70,9 +71,9 @@ V angrad( V v )
     double y = v[1];
 
     V grad = { 0, 0 };
-    grad[ 0 ] = TNL::cos( x );
-    //grad[0] = 2*x*y*y;
-    //grad[1] = 2*x*x*y;
+    //grad[ 0 ] = TNL::cos(x);
+    grad[0] = 2*x*y*y;
+    grad[1] = 2*x*x*y;
     // grad[0] = 2*x*sin(x*x+y*y) + 2*x*x*x*cos(x*x+y*y) + 2*x*y*cos(x*x+y*y);
     // grad[1] = 2*x*y*cos(x*x+y*y) + 2*y*y*y*cos(x*x+y*y) + 2*y*sin(x*x+y*y);
     return grad;
@@ -276,97 +277,6 @@ t d_inv_m2( t x00, t x01, t x10, t x11, t x20, t x21, int point, bool component 
     else return 0;
 }
 
-template< typename t >
-Containers::Vector< t > diff_num( Containers::Vector< Containers::Vector< double > > x, int point, bool component )
-{
-    Containers::Vector< double > sum = 0;
-    Containers::Vector< double > auxSum = 0;
-    for( int i = 0; i < 3; i++ )
-    {
-        int k = i%3;
-        int l = (i+1)%3;
-        int m = (i+2)%3;
-        Containers::Vector< double > n = { n0( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ),
-                                           n1( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) };
-        auxSum += m1< double >( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) *
-                  f< Containers::Vector< double > >(
-                   x_sigma< Containers::Vector< double > >( {x[ l ][ 0 ],x[ l ][ 1 ]},
-                                                         {x[ m ][ 0 ],x[ m ][ 1 ]} )
-                                                   ) *
-                  n;
-    }
-    double d = d_inv_m2< double >( x[ 0 ][ 0 ], x[ 0 ][ 1 ], x[ 1 ][ 0 ], x[ 1 ][ 1 ], x[ 2 ][ 0 ], x[ 2 ][ 1 ], point, component );
-    auxSum *= d;
-    sum += auxSum;
-    auxSum = 0;
-
-    for( int i = 0; i < 3; i++ )
-    {
-        int k = i%3;
-        int l = (i+1)%3;
-        int m = (i+2)%3;
-        Containers::Vector< double > d_n = { d_n0( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ], point, component ),
-                                             d_n1( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ], point, component ) };
-        auxSum += m1< double >( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) *
-                  f< Containers::Vector< double > >(
-                   x_sigma< Containers::Vector< double > >( {x[ l ][ 0 ],x[ l ][ 1 ]},
-                                                            {x[ m ][ 0 ],x[ m ][ 1 ]} )
-                                                   ) *
-                  d_n;
-    }
-    d = inv_m2< double >( x[ 0 ][ 0 ], x[ 0 ][ 1 ], x[ 1 ][ 0 ], x[ 1 ][ 1 ], x[ 2 ][ 0 ], x[ 2 ][ 1 ] );
-    auxSum *= d;
-    sum += auxSum;
-    auxSum = 0;
-
-    for( int i = 0; i < 3; i++ )
-    {
-        int k = i%3;
-        int l = (i+1)%3;
-        int m = (i+2)%3;
-        Containers::Vector< double > n = { n0( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ),
-                                           n1( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) };
-        auxSum += d_m1< double >( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ], point, component ) *
-                  f< Containers::Vector< double > >(
-                   x_sigma< Containers::Vector< double > >( {x[ l ][ 0 ],x[ l ][ 1 ]},
-                                                            {x[ m ][ 0 ],x[ m ][ 1 ]} )
-                                                   ) *
-                  n;
-    }
-    d = inv_m2< double >( x[ 0 ][ 0 ], x[ 0 ][ 1 ], x[ 1 ][ 0 ], x[ 1 ][ 1 ], x[ 2 ][ 0 ], x[ 2 ][ 1 ] );
-    auxSum *= d;
-    sum += auxSum;
-    auxSum = 0;
-
-    for( int i = 0; i < 3; i++ )
-    {
-        int k = i%3;
-        int l = (i+1)%3;
-        int m = (i+2)%3;
-        Containers::Vector< double > dx_sigma = {
-            d_x_sigma< double >( x[ l ][ 0 ],
-                                 x[ l ][ 1 ],
-                                 x[ m ][ 0 ],
-                                 x[ m ][ 1 ], point, 0 ),
-            d_x_sigma< double >( x[ l ][ 0 ],
-                                 x[ l ][ 1 ],
-                                 x[ m ][ 0 ],
-                                 x[ m ][ 1 ], point, 1 )
-        };
-        Containers::Vector< double > n = { n0( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ),
-                                           n1( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) };
-        auxSum += m1< double >( x[ l ][ 0 ], x[ l ][ 1 ], x[ m ][ 0 ], x[ m ][ 1 ] ) *
-                  angrad< Containers::Vector< double > >( dx_sigma ) *
-                  n;
-    }
-    d = inv_m2< double >( x[ 0 ][ 0 ], x[ 0 ][ 1 ], x[ 1 ][ 0 ], x[ 1 ][ 1 ], x[ 2 ][ 0 ], x[ 2 ][ 1 ] );
-    auxSum *= d;
-    sum += auxSum;
-    auxSum = 0;
-
-    return sum;
-}
-
 template< typename MeshConfig >
 bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
 {
@@ -399,6 +309,18 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
     std::cout << "Cells: " << cellsCount << ", faces: " << facesCount << ", vertices: " << verticesCount << std::endl;
 
+
+    // getting minimal face measure
+    auto face0 = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( 0 );
+    double minFace = getEntityMeasure( mesh, face0 );
+    for( int i = 0; i < facesCount; i++ )
+    {
+        auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
+        double fm = getEntityMeasure( mesh, face );
+        if ( fm < minFace ) minFace = fm;
+    }
+
+
     Containers::Vector< PointType, Devices::Host > nabla_h ( verticesCount );
     Containers::Vector< PointType, Devices::Host > nabla ( verticesCount );
     nabla_h = 0;
@@ -428,7 +350,8 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
             sum += getEntityMeasure( mesh, sigma ) * f_sigma * outwardNormal;
         }
 
-        PointType grad = ( 1.0 / getEntityMeasure( mesh, cell ) ) * sum;
+        PointType grad_h = ( 1.0 / getEntityMeasure( mesh, cell ) ) * sum;
+        PointType grad = angrad< PointType >( getEntityCenter( mesh, cell ) );
 
         for( int j = 0; j < 3; j++ )
         {
@@ -436,10 +359,21 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         // in center or in each individual point?
         // so far i chose to compute the angrad in each point
         int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
-        nabla[ globalPointIdx ] += angrad< PointType >( mesh.template getPoint( globalPointIdx ) );
-        nabla_h[ globalPointIdx ] += grad;
+        nabla[ globalPointIdx ] += grad;
+        nabla_h[ globalPointIdx ] += grad_h;
         }
     }
+
+    // std::cout << "nabla: " << nabla << std::endl;
+    // std::cout << "nabla_h: " << nabla_h << std::endl;
+
+    // calculating L(mesh)
+    double L = 0.0;
+    for( int i = 0; i < verticesCount; i++ )
+    {
+        L += l2Norm( nabla_h[i] - nabla[i] );
+    }
+
 
     // derivatives of nabla_h f(x^i), see LaTeX
     // derivatives by the first component
@@ -1011,6 +945,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         dk1_nabla_h[ globalPointIdx2 ][ 1 ] += d_nabla_h;
     }
 
+
     // second component
     // point 0
     for( int j = 0; j < cellsCount; j++ )
@@ -1196,8 +1131,6 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         d_nabla_h += m2 * auxSum;
 
         dk2_nabla_h[ globalPointIdx0 ][ 1 ] += d_nabla_h;
-
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
     }
 
     // point 1
@@ -1538,10 +1471,10 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
             int k = i % 3;
             int l = ( i + 1 ) % 3;
             int m = ( i + 2 ) % 3;
-            auxSum += m1< double >( cp[ k ][ 0 ],
-                                    cp[ k ][ 0 ],
-                                    cp[ k ][ 1 ],
-                                    cp[ l ][ 1 ] ) *
+            auxSum += m1< double >( cp[ l ][ 0 ],
+                                    cp[ m ][ 0 ],
+                                    cp[ l ][ 1 ],
+                                    cp[ m ][ 1 ] ) *
                       (
                        angrad< PointType >( x_sigma< PointType >(cp[ l ], cp[ m ]) ),
                        dxsv< double >( cp[ l ][ 0 ], cp[ l ][ 1 ], cp[ m ][ 0 ], cp[ m ][ 1 ], k )
@@ -1586,9 +1519,9 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
                              + dk2_nabla_h[ i ][ 1 ] * ( nabla_h[ i ][ 1 ] - nabla[ i ][ 1 ] );
     }
 
-    // save vector of N PointTypes as an array of 2N doubles for writing
+    // save vector of N PointTypes as an array of 3N doubles for writing
     // add zeros as a third component because of .vtk format
-    Containers::Array< double, Devices::Host > nabla_arr( 3 * verticesCount );
+    Containers::Array< double > nabla_arr( 3 * verticesCount );
     nabla_arr = 0;
     for( int i = 0; i < 3 * verticesCount; i += 3 )
     {
@@ -1597,12 +1530,14 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         nabla_arr[ i + 2 ] = 0; // redundant
     }
  
+    /*
     std::cout << "mesh gradient" << std::endl; 
     for( int i = 0; i < verticesCount; i++ )
     {
         std::cout << nabla_mesh[ i ];
     }
     std::cout << std::endl;
+    */
 
     // writing the result into a new mesh
     using VTKWriter = Meshes::Writers::VTKWriter< MeshType >;
@@ -1611,10 +1546,93 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
     writer.template writeEntities< MeshType::getMeshDimension() >( mesh );
     writer.writePointData( nabla_arr, "meshGrads", 3 );
 
-    std::cout << "OK" << std::endl;
+    Containers::Array< double > norms( verticesCount );
 
-    return true;
+    double maxNorm = 0;
+    for( int i = 0; i < verticesCount; i++ )
+    {
+        norms[ i ] = l2Norm( nabla_mesh[ i ] );
+        if( i > 0 ) maxNorm = std::max( norms[ i - 1 ], norms[ i ] );
+    }
+
+    Containers::Vector< PointType > points( verticesCount );
+    for( int i = 0; i < verticesCount; i++ )
+    {
+        if( maxNorm >= 1.0 )
+        {
+            points[ i ] += mesh.getPoint( i ) -
+            ( ( 1e-5 * minFace * maxNorm ) * nabla_mesh[ i ] );
+        }
+        else
+        {
+            points[ i ] += mesh.getPoint( i ) - ( 1e-5 * minFace * nabla_mesh[ i ] );
+        }
+    }
+
+    Containers::Vector< PointType > new_nabla_h( verticesCount );
+    Containers::Vector< PointType > new_nabla( verticesCount );
+    for( int i = 0; i < cellsCount; i++ )
+    {
+        auto cell = mesh.template getEntity< MeshType::getMeshDimension() >( i );
+        PointType sum = { 0, 0 };
+        for( int j = 0; j < 3; j++ )
+        {
+            PointType faceVector = points[ cell.template getSubentityIndex< 0 > ( (j+2) % 3 ) ] 
+                                 - points[ cell.template getSubentityIndex< 0 > ( (j+1) % 3 ) ];
+
+            PointType outwardNormal = normalize< PointType >( { faceVector[ 1 ], -faceVector[ 0 ] } );
+
+            PointType x_sigma = 0.5 *
+                                ( points[ cell.template getSubentityIndex< 0 > ( (j+1) % 3 ) ] 
+                                + points[ cell.template getSubentityIndex< 0 > ( (j+2) % 3 ) ] );
+
+            double f_sigma = f< PointType >( x_sigma );
+            sum += l2Norm( faceVector ) * f_sigma * outwardNormal;
+        }
+        double x00 = points[ cell.template getSubentityIndex< 0 >( 0 ) ][ 0 ];
+        double x01 = points[ cell.template getSubentityIndex< 0 >( 0 ) ][ 1 ];
+        double x10 = points[ cell.template getSubentityIndex< 0 >( 1 ) ][ 0 ];
+        double x11 = points[ cell.template getSubentityIndex< 0 >( 1 ) ][ 1 ];
+        double x20 = points[ cell.template getSubentityIndex< 0 >( 2 ) ][ 0 ];
+        double x21 = points[ cell.template getSubentityIndex< 0 >( 2 ) ][ 1 ]; 
+        PointType grad_h = inv_m2< double >( x00, x01, x10, x11, x20, x21 ) * sum;
+        PointType center = 0;
+        center[ 0 ] = (x00 + x10 + x20) / 3;
+        center[ 1 ] = (x01 + x11 + x21) / 3;
+        PointType grad = angrad< PointType >( center );
+        
+        for( int j = 0; j < 3; j++ )
+        {
+        int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
+        new_nabla[ globalPointIdx ] += grad;
+        new_nabla_h[ globalPointIdx ] += grad_h;
+        }
+    }
+
+    // std::cout << "new nabla: " << new_nabla << std::endl;
+    // std::cout << "new nabla_h: " << new_nabla_h << std::endl;
+
+    // calculating L(after first step of optimization)
+    double new_L = 0.0;
+    for( int i = 0; i < verticesCount; i++ )
+    {
+        new_L += l2Norm( new_nabla_h[i] - new_nabla[i] );
+    }
+    std::cout << "L(initial mesh) = " << L << std::endl;
+    std::cout << "L(after update) =  " << new_L << std::endl;
+    std::cout << "longest gradient: " << maxNorm << std::endl;
+    std::cout << "shortest face in the mesh: " << minFace << std::endl;
+
+
+
+    std::cout << "OK" << std::endl;
+    return true; 
 }
+
+// TODO:
+//  more iterations of GD
+// Tikhonov regularization
+// bet border vertices, forAll cycle
 
 int main( int argc, char* argv[] )
 {
