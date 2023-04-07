@@ -1,5 +1,4 @@
 #include <TNL/Meshes/Mesh.h>
-#include <TNL/Containers/StaticVector.h>
 #include <TNL/Containers/Vector.h>
 #include <TNL/Meshes/Geometry/getEntityMeasure.h>
 #include <TNL/Meshes/TypeResolver/resolveMeshType.h>
@@ -43,10 +42,10 @@ template<> struct MeshLocalIndexTag< MyConfigTag, short int >{ static constexpr 
 template< typename V >
 V normalize(V v)
 {
-    V u = (1.0 / l2Norm( v )) * v;
-    return u;
+    return (1.0 / l2Norm( v )) * v;
 }
 
+// the function f whose gradient we approximate
 template< typename V >
 double f( V v )
 {
@@ -54,10 +53,9 @@ double f( V v )
     double y = v[1];
 
     return x*x*y*y;
-    // return  x*x*sin(x*x + y*y) + y*y*sin(x*x + y*y) ;
 }
 
-// manually computed gradient of the function above
+// manually computed gradient of the function above to check approximation accuracy
 template< typename V >
 V angrad( V v )
 {
@@ -67,8 +65,6 @@ V angrad( V v )
     V grad = { 0, 0 };
     grad[0] = 2*x*y*y;
     grad[1] = 2*x*x*y;
-    // grad[0] = 2*x*sin(x*x+y*y) + 2*x*x*x*cos(x*x+y*y) + 2*x*y*cos(x*x+y*y);
-    // grad[1] = 2*x*y*cos(x*x+y*y) + 2*y*y*y*cos(x*x+y*y) + 2*y*sin(x*x+y*y);
     return grad;
 }
 
@@ -86,22 +82,18 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
     const int facesCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() - 1 >();
     const int cellsCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() >();
 
-    // Containers::StaticVector< 8, PointType > cellCenters;
     Containers::Vector< PointType, Devices::Host > cellCenters ( cellsCount );
     for(int i = 0; i < cellsCount; i++)
     {
         auto cell = mesh.template getEntity< MeshType::getMeshDimension() >( i );
         PointType center = getEntityCenter( mesh, cell );
-        // std::cout << "\nCell " << i << ", center: " << center;
     }
 
-    // Containers::StaticVector< 15, PointType > faceCenters;
     Containers::Vector< PointType, Devices::Host > faceCenters ( facesCount );
     for(int i = 0; i < facesCount; i++)
     {
         auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
         PointType center = getEntityCenter( mesh, face );
-        // std::cout << "\nFace " << i << ", center: " << center;
     }
 
     std::cout << std::endl;
@@ -118,16 +110,11 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
             const auto faceIdx = cell.template getSubentityIndex< MeshType::getMeshDimension() - 1 >( j );
             const auto sigma = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( faceIdx );
 
-            //std::cout << "\nCell " << i << ", local face index: " << j << ", global face index: " << faceIdx << std::endl;
-
             PointType faceVector = mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+2)%3 )) 
                                  - mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+1)%3 ));
 
             PointType outwardNormal = normalize< PointType >( { faceVector[1], -faceVector[0] } );
-            //std::cout << "Outward normal vector n_sigma: " << outwardNormal;
-
             PointType x_sigma = getEntityCenter( mesh, sigma );
-            //std::cout << ", face center: " << x_sigma << "\n";
 
             double f_sigma = f< PointType >( x_sigma );
             sum += getEntityMeasure( mesh, sigma ) * f_sigma * outwardNormal;
@@ -140,21 +127,14 @@ bool grad( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fil
         grads[ i ] = grad;
     }
 
-    double compoundError = 0;
-    // std::cout << "\nNumerical approximation of gradient in cell centers (row ~ cell index): " << std::endl;
+    double error = 0;
     for(int i = 0; i < cellsCount; i++)
     {
-        PointType error = grads[ i ] - analytical[ i ];
-        /*std::cout << "Numerical " << ": " << grads[ i ] << ", analytical: " << analytical[ i ]
-                  << ", with error: " << l2Norm( error ) << std::endl;*/
-        compoundError += l2Norm( error ); // ?? times cell measure ??
-        // add convergence order
-        // iteration step manually through gmesh
-        // expecting value around 1
-        // dependent on function, oscilation => errors
+        PointType localError = grads[ i ] - analytical[ i ];
+        error += l2Norm( localError );
     }
 
-    std::cout << "Compound average error: " << compoundError / cellsCount << std::endl;
+    std::cout << "Average error: " << error / cellsCount << std::endl;
 
     return true;
 }
