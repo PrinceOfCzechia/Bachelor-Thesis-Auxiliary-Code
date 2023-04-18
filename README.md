@@ -17,6 +17,8 @@ Short description of files follows:
 
 **autodiff.ipynb**: tests the handcalculated derivatives in comparison with the results of differentiating with the python library *mygrad*.
 
-**triangleOptimization**: computes all derivatives required to actualy assemble a *2N-dimensional vector*, a gradient of the mesh for numerical gradient approximation. Performs one gradient descent iteration.
+**triangleOptimization.cpp**: computes all derivatives required to actualy assemble a *2N-dimensional vector*, a gradient of the mesh for numerical gradient approximation. Performs one gradient descent iteration.
 
-**iterativeTriOpt**: iterates what **triangleOptimization** does, by deafult, 100,000 iterations are performed. The cycle stops once there is no improvement of the loss function.
+**iterativeTriOpt.cpp**: iterates what **triangleOptimization** does, by deafult, 100,000 iterations are performed. The cycle stops once there is no improvement of the loss function.
+
+**nablaDef.cpp**: computes nabla L using definiton of partial derivatives, dL = ( L(perturbation) - L(original mesh) ) / perturbation.
