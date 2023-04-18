@@ -3,11 +3,11 @@
 #include <TNL/Containers/Vector.h>
 #include <TNL/Meshes/Geometry/getEntityMeasure.h>
 #include <TNL/Meshes/TypeResolver/resolveMeshType.h>
-#include <TNL/Meshes/Writers/VTIWriter.h>
 #include <TNL/Meshes/Writers/VTKWriter.h>
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <limits>
 
 using namespace TNL;
 using namespace TNL::Meshes;
@@ -58,8 +58,8 @@ double f( V v )
     double x = v[0];
     double y = v[1];
 
-    return x*x*y*y;
-    // return TNL::sin(x);
+    return sin(x);
+    //return std::exp( -x*x - y*y );
     // return  x*x*sin(x*x + y*y) + y*y*sin(x*x + y*y) ;
 }
 
@@ -71,9 +71,9 @@ V angrad( V v )
     double y = v[1];
 
     V grad = { 0, 0 };
-    //grad[ 0 ] = TNL::cos(x);
-    grad[0] = 2*x*y*y;
-    grad[1] = 2*x*x*y;
+    grad[0] = cos(x);
+    // grad[ 0 ] = -2 * x * std::exp( -x*x - y*y );
+    // grad[ 0 ] = -2 * y * std::exp( -x*x - y*y );
     // grad[0] = 2*x*sin(x*x+y*y) + 2*x*x*x*cos(x*x+y*y) + 2*x*y*cos(x*x+y*y);
     // grad[1] = 2*x*y*cos(x*x+y*y) + 2*y*y*y*cos(x*x+y*y) + 2*y*sin(x*x+y*y);
     return grad;
@@ -278,7 +278,7 @@ t d_inv_m2( t x00, t x01, t x10, t x11, t x20, t x21, int point, bool component 
 }
 
 template< typename MeshConfig >
-bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
+bool numScheme( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
 {
     using MeshType = Mesh< MeshConfig, Devices::Host >;
     using RealType = typename MeshType::RealType;
@@ -307,20 +307,6 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         // std::cout << "\nFace " << i << ", center: " << center;
     }
 
-    std::cout << "Cells: " << cellsCount << ", faces: " << facesCount << ", vertices: " << verticesCount << std::endl;
-
-
-    // getting minimal face measure
-    auto face0 = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( 0 );
-    double minFace = getEntityMeasure( mesh, face0 );
-    for( int i = 0; i < facesCount; i++ )
-    {
-        auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
-        double fm = getEntityMeasure( mesh, face );
-        if ( fm < minFace ) minFace = fm;
-    }
-
-
     Containers::Vector< PointType, Devices::Host > nabla_h ( verticesCount );
     Containers::Vector< PointType, Devices::Host > nabla ( verticesCount );
     nabla_h = 0;
@@ -335,7 +321,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
             const auto faceIdx = cell.template getSubentityIndex< MeshType::getMeshDimension() - 1 >( j );
             const auto sigma = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( faceIdx );
 
-            //std::cout << "\nCell " << i << ", local face index: " << j << ", global face index: " << faceIdx << std::endl;
+            //std::cout << "\nCell " << i << ", local face index: " << j << ", global face index: " << faceIdx << "\n";
 
             PointType faceVector = mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+2) % 3 ) ) 
                                  - mesh.getPoint( cell.template getSubentityIndex< 0 > ( (j+1) % 3 ) );
@@ -364,14 +350,14 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         }
     }
 
-    // std::cout << "nabla: " << nabla << std::endl;
-    // std::cout << "nabla_h: " << nabla_h << std::endl;
+    // std::cout << "nabla: " << nabla << "\n";
+    // std::cout << "nabla_h: " << nabla_h << "\n";
 
     // calculating L(mesh)
     double L = 0.0;
     for( int i = 0; i < verticesCount; i++ )
     {
-        L += l2Norm( nabla_h[i] - nabla[i] );
+        L += l2Norm( nabla_h[i] - nabla[i] ) * l2Norm( nabla_h[i] - nabla[i] );
     }
 
 
@@ -488,7 +474,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
         dk1_nabla_h[ globalPointIdx0 ][ 0 ] += d_nabla_h;
 
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
+        // std::cout << "Cell " << j << ": " << d_nabla_h << "\n";
 
         // by the second component
         
@@ -674,7 +660,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
         dk1_nabla_h[ globalPointIdx1 ][ 0 ] += d_nabla_h;
 
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
+        // std::cout << "Cell " << j << ": " << d_nabla_h << "\n";
 
         // by the second component
 
@@ -861,7 +847,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
         dk1_nabla_h[ globalPointIdx2 ][ 0 ] += d_nabla_h;
 
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
+        // std::cout << "Cell " << j << ": " << d_nabla_h << "\n";
 
         // by the second component
 
@@ -1318,7 +1304,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
         dk2_nabla_h[ globalPointIdx1 ][ 1 ] += d_nabla_h;
 
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
+        // std::cout << "Cell " << j << ": " << d_nabla_h << "\n";
     }
 
     // point 2
@@ -1506,7 +1492,7 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
 
         dk2_nabla_h[ globalPointIdx2 ][ 1 ] += d_nabla_h;
 
-        // std::cout << "Cell " << j << ": " << d_nabla_h << std::endl;
+        // std::cout << "Cell " << j << ": " << d_nabla_h << "\n";
     }
 
     Containers::Vector< PointType, Devices::Host > nabla_mesh( verticesCount );
@@ -1529,49 +1515,60 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         nabla_arr[ i + 1 ] = nabla_mesh[ i / 3 ][ 1 ];
         nabla_arr[ i + 2 ] = 0; // redundant
     }
- 
-    /*
-    std::cout << "mesh gradient" << std::endl; 
-    for( int i = 0; i < verticesCount; i++ )
-    {
-        std::cout << nabla_mesh[ i ];
-    }
-    std::cout << std::endl;
-    */
 
-    // writing the result into a new mesh
+    // writing the computed gradient into a new mesh
     using VTKWriter = Meshes::Writers::VTKWriter< MeshType >;
     std::ofstream out = std::ofstream( "new.vtk" );
     VTKWriter writer = VTKWriter( out );
     writer.template writeEntities< MeshType::getMeshDimension() >( mesh );
     writer.writePointData( nabla_arr, "meshGrads", 3 );
 
-    Containers::Array< double > norms( verticesCount );
 
+
+    // norm of the longest interior gradient (0 is a lower bound)
     double maxNorm = 0;
-    for( int i = 0; i < verticesCount; i++ )
+    auto getLongestGrad = [ &nabla_mesh, &maxNorm ] ( GlobalIndexType i )  // mutable, uncomment for possible future use
     {
-        norms[ i ] = l2Norm( nabla_mesh[ i ] );
-        if( i > 0 ) maxNorm = std::max( norms[ i - 1 ], norms[ i ] );
-    }
+        double aux = l2Norm( nabla_mesh[ i ] );
+        if( aux > maxNorm ) maxNorm = aux;
+    };
+    mesh.template forAll< 0 >( getLongestGrad );
 
-    Containers::Vector< PointType > points( verticesCount );
-    for( int i = 0; i < verticesCount; i++ )
+    // getting minimal face measure
+    double minFace = std::numeric_limits< double >::max();
+    auto getShortestFace = [ &mesh, &minFace ] ( GlobalIndexType i )  // mutable, uncomment for possible future use
     {
-        if( maxNorm >= 1.0 )
-        {
-            points[ i ] += mesh.getPoint( i ) -
-            ( ( 1e-5 * minFace * maxNorm ) * nabla_mesh[ i ] );
-        }
-        else
-        {
-            points[ i ] += mesh.getPoint( i ) - ( 1e-5 * minFace * nabla_mesh[ i ] );
-        }
-    }
+        auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
+        double aux = getEntityMeasure( mesh, face );
+        if( aux < minFace ) minFace = aux;
+    };
+    mesh.template forAll< MeshType::getMeshDimension() - 1 >( getShortestFace );
+
+    // update interior vertices by -nabla_mesh
+    auto updatePoints = [ &mesh, &nabla_mesh, &maxNorm, &minFace ] ( GlobalIndexType i ) mutable
+    {
+        mesh.getPoints()[ i ] -= 1e-9 * minFace * maxNorm * nabla_mesh[ i ];
+    };
+    mesh.template forAll< 0 >( updatePoints );
+
+    // writing the updated mesh into a new file
+    std::ofstream output = std::ofstream( "iteration.vtk" );
+    VTKWriter writer2 = VTKWriter( output, TNL::Meshes::VTK::FileFormat::ascii );
+    writer2.template writeEntities< MeshType::getMeshDimension() >( mesh );
 
     Containers::Vector< PointType > new_nabla_h( verticesCount );
     Containers::Vector< PointType > new_nabla( verticesCount );
-    for( int i = 0; i < cellsCount; i++ )
+
+    // give the points vector value of respective vertices
+    Containers::Vector< PointType > points( verticesCount );
+    auto fillPoints = [ &mesh, &points ] ( GlobalIndexType i )  // mutable, uncomment for possible future use
+    {
+        points[ i ] = mesh.getPoints( )[ i ];
+    };
+    mesh.template forAll< 0 >( fillPoints );
+
+    // calculate nabla_h and nabla after the first iteration
+    auto next_iteration = [ &mesh, &points, &new_nabla_h, &new_nabla ] ( GlobalIndexType i )  mutable
     {
         auto cell = mesh.template getEntity< MeshType::getMeshDimension() >( i );
         PointType sum = { 0, 0 };
@@ -1607,38 +1604,45 @@ bool numScheme( const Mesh< MeshConfig, Devices::Host >& mesh, const std::string
         new_nabla[ globalPointIdx ] += grad;
         new_nabla_h[ globalPointIdx ] += grad_h;
         }
-    }
+    };
+    mesh.template forAll< MeshType::getMeshDimension() >( next_iteration );
 
-    // std::cout << "new nabla: " << new_nabla << std::endl;
-    // std::cout << "new nabla_h: " << new_nabla_h << std::endl;
+    // std::cout << "new nabla: " << new_nabla << "\n";
+    // std::cout << "new nabla_h: " << new_nabla_h << "\n";
 
-    // calculating L(after first step of optimization)
+    // calculating L(after optimization step)
     double new_L = 0.0;
     for( int i = 0; i < verticesCount; i++ )
     {
-        new_L += l2Norm( new_nabla_h[i] - new_nabla[i] );
+        new_L += l2Norm( new_nabla_h[ i ] - new_nabla[ i ] ) * l2Norm( new_nabla_h[ i ] - new_nabla[ i ] );
     }
-    std::cout << "L(initial mesh) = " << L << std::endl;
-    std::cout << "L(after update) =  " << new_L << std::endl;
-    std::cout << "longest gradient: " << maxNorm << std::endl;
-    std::cout << "shortest face in the mesh: " << minFace << std::endl;
+
+    std::cout << nabla_mesh << "\n";
+
+    std::cout << "L(initial mesh) = " << L << "\n";
+    std::cout << "L(after update) = " << new_L << "\n";
+    std::cout << "longest interior gradient: " << maxNorm << "\n";
+    std::cout << "shortest face in the mesh: " << minFace << "\n";
+
+    std::cout << "\nimprovement of L: " << L - new_L << "\n";
 
 
 
-    std::cout << "OK" << std::endl;
+    std::cout << "OK" << "\n";
     return true; 
 }
 
 // TODO:
-//  more iterations of GD
+// more iterations of GD
 // Tikhonov regularization
 // bet border vertices, forAll cycle
+// use getPoints()
 
 int main( int argc, char* argv[] )
 {
     if( argc < 2 )
     {
-        std::cerr << "Usage: " << argv[ 0 ] << " [mesh file adress]" << std::endl;
+        std::cerr << "Usage: " << argv[ 0 ] << " [mesh file adress]" << "\n";
         return EXIT_FAILURE;
     }
 

@@ -3,7 +3,6 @@
 #include <TNL/Containers/Vector.h>
 #include <TNL/Meshes/Geometry/getEntityMeasure.h>
 #include <TNL/Meshes/TypeResolver/resolveMeshType.h>
-#include <TNL/Meshes/Writers/VTIWriter.h>
 #include <TNL/Meshes/Writers/VTKWriter.h>
 #include <fstream>
 #include <iostream>
@@ -205,7 +204,7 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
     };
 
 
-    // calculating L(mesh)
+    // computing L(mesh)
     double loss = L< PointType >( nabla_h, nabla );
 
     std::cout << "L = " << loss << "\n";
@@ -236,7 +235,23 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
     };
     mesh.template forAll< 0 >( kernel );
 
-    std::cout << nabla_mesh << "\n";
+    std::cout << "nabla L = " << nabla_mesh << "\n";
+
+    Containers::Array< double > nabla_arr( 3 * verticesCount );
+    nabla_arr = 0;
+    for( int i = 0; i < 3 * verticesCount; i += 3 )
+    {
+        nabla_arr[ i ] = nabla_mesh[ i / 3 ][ 0 ];
+        nabla_arr[ i + 1 ] = nabla_mesh[ i / 3 ][ 1 ];
+        nabla_arr[ i + 2 ] = 0; // redundant
+    }
+
+    // writing the computed gradient into a new mesh
+    using VTKWriter = Meshes::Writers::VTKWriter< MeshType >;
+    std::ofstream out = std::ofstream( "defGrads.vtk" );
+    VTKWriter writer = VTKWriter( out );
+    writer.template writeEntities< MeshType::getMeshDimension() >( mesh );
+    writer.writePointData( nabla_arr, "meshGrads", 3 );
 
     std::cout << "OK" << "\n";
     return true;

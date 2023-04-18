@@ -3,7 +3,6 @@
 #include <TNL/Containers/Vector.h>
 #include <TNL/Meshes/Geometry/getEntityMeasure.h>
 #include <TNL/Meshes/TypeResolver/resolveMeshType.h>
-#include <TNL/Meshes/Writers/VTIWriter.h>
 #include <TNL/Meshes/Writers/VTKWriter.h>
 #include <fstream>
 #include <iostream>
