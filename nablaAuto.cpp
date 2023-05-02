@@ -64,8 +64,8 @@ double f( V v )
     double x = v[0];
     double y = v[1];
 
-    return sin(x);
-    //return std::exp( -x*x - y*y );
+    // return sin(x);
+    return std::exp( -x*x - y*y );
     // return  x*x*sin(x*x + y*y) + y*y*sin(x*x + y*y) ;
 }
 
@@ -77,9 +77,9 @@ V angrad( V v )
     double y = v[1];
 
     V grad = { 0, 0 };
-    grad[0] = cos(x);
-    // grad[ 0 ] = -2 * x * std::exp( -x*x - y*y );
-    // grad[ 0 ] = -2 * y * std::exp( -x*x - y*y );
+    // grad[0] = cos(x);
+    grad[ 0 ] = -2 * x * std::exp( -x*x - y*y );
+    grad[ 1 ] = -2 * y * std::exp( -x*x - y*y );
     // grad[0] = 2*x*sin(x*x+y*y) + 2*x*x*x*cos(x*x+y*y) + 2*x*y*cos(x*x+y*y);
     // grad[1] = 2*x*y*cos(x*x+y*y) + 2*y*y*y*cos(x*x+y*y) + 2*y*sin(x*x+y*y);
     return grad;
@@ -93,10 +93,10 @@ V x_sigma( V v1, V v2)
 }
 
 template< typename t >
-real old_L( Containers::Vector< t >& nabla_h,
-        Containers::Vector< t >& nabla )
+double old_L( Containers::Vector< t >& nabla_h,
+            Containers::Vector< t >& nabla )
 {
-    real L = 0.0;
+    double L = 0.0;
     for( int i = 0; i < nabla_h.getSize(); i++ )
     {
         L += l2Norm( nabla_h[ i ] - nabla[ i ] ) * l2Norm( nabla_h[ i ] - nabla[ i ] );
@@ -106,15 +106,15 @@ real old_L( Containers::Vector< t >& nabla_h,
 
 real L( const ArrayXreal& x )
 {
-    real L = 0.0;
+    real loss = 0.0;
     for( int i = 0; i < x.size(); i++ )
     {
-        L += x(2*i) * x(2*i) + x(2*i+1) * x(2*i+1);
+        loss += x(2*i) * x(2*i) + x(2*i+1) * x(2*i+1);
     }
-    return L;
+    return loss;
 }
 
-const int ITERATIONS_COUNT = 1e1;
+const int MAX_ITERATIONS = 1e5 + 1;
 
 template< typename MeshConfig >
 bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
@@ -130,7 +130,7 @@ bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
     const int facesCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() - 1 >();
     const int cellsCount = mesh.template getEntitiesCount< MeshType::getMeshDimension() >();
 
-    for( int iter = 0; iter < ITERATIONS_COUNT; iter++ )
+    for( int iter = 0; iter < MAX_ITERATIONS; iter++ )
     {
         Containers::Vector< PointType, Devices::Host > cellCenters ( cellsCount );
         for(int i = 0; i < cellsCount; i++)
@@ -193,6 +193,7 @@ bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
             var( 2*i +1 ) = aux;
         }
 
+
         // computing L(initial_mesh)
         double loss = L( var );
         
@@ -205,7 +206,7 @@ bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
         VectorXd g = gradient(L, wrt(var), at(var), u); // evaluate the function value u and its gradient vector g = du/dx
 
 
-        for( int i = 0; i <= g.size(); i += 2 )
+        for( int i = 0; i < g.size(); i += 2 )
         {
             nabla_mesh[ i/2 ][ 0 ] = g( i );
             nabla_mesh[ i/2 ][ 1 ] = g( i+1 );
@@ -222,7 +223,7 @@ bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
 
         auto descent = [ &mesh, &nabla_mesh ] ( GlobalIndexType i ) mutable
         {
-            mesh.getPoints()[ i ] -= 1e-3 * nabla_mesh[ i ]; // TODO change parameter
+            mesh.getPoints()[ i ] -= 1e-5 * nabla_mesh[ i ]; // TODO change parameter
         };
         mesh.template forInterior< 0 >( descent );
 
@@ -240,9 +241,35 @@ bool nablaAuto( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
 
         double improvement = loss - new_loss;
         
-        std::cout << "L(initial mesh) = " << loss << "\n"
-                << "L(updated mesh) = " << new_loss << "\n"
-                << "\nimprovement of L: " << improvement << "\n\n";
+        if( iter % 10000 == 0 )
+        {
+            std::cout << "Iteration: " << iter << "\n"
+                      << "L(initial mesh) = " << loss << "\n"
+                      << "L(updated mesh) = " << new_loss << "\n"
+                      << "\nimprovement of L: " << improvement << "\n\n";
+        }
+        else
+        {
+            std::cout << "broke at iteration: " << iter << "\n\n";
+            for( int i = 0; i < 3 * verticesCount; i += 3 )
+            {
+                nabla_arr[ i ] = nabla_mesh[ i / 3 ][ 0 ];
+                nabla_arr[ i + 1 ] = nabla_mesh[ i / 3 ][ 1 ];
+                // zeros are in every third position by default
+            }
+            writer.writePointData( nabla_arr, "meshGrads", 3 );
+            break;
+        }
+        if( iter == MAX_ITERATIONS )
+        {
+            for( int i = 0; i < 3 * verticesCount; i += 3 )
+            {
+                nabla_arr[ i ] = nabla_mesh[ i / 3 ][ 0 ];
+                nabla_arr[ i + 1 ] = nabla_mesh[ i / 3 ][ 1 ];
+                // zeros are in every third position by default
+            }
+            writer.writePointData( nabla_arr, "meshGrads", 3 );
+        }
     }
 
     std::cout << "OK" << "\n";
