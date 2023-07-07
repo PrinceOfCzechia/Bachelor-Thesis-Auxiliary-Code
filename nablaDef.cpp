@@ -9,6 +9,7 @@
 #include <vector>
 #include <limits>
 
+
 using namespace TNL;
 using namespace TNL::Meshes;
 
@@ -98,7 +99,7 @@ double L( Containers::Vector< t >& nabla_h,
     return L;
 }
 
-const double EPSILON = 1e-12;
+const double EPSILON = 1e-8;
 
 template< typename MeshConfig >
 bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileName )
@@ -119,7 +120,6 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
     {
         auto cell = mesh.template getEntity< MeshType::getMeshDimension() >( i );
         PointType center = getEntityCenter( mesh, cell );
-        // std::cout << "\nCell " << i << ", center: " << center;
     }
 
     Containers::Vector< PointType, Devices::Host > faceCenters ( facesCount );
@@ -127,7 +127,6 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
     {
         auto face = mesh.template getEntity< MeshType::getMeshDimension() - 1 >( i );
         PointType center = getEntityCenter( mesh, face );
-        // std::cout << "\nFace " << i << ", center: " << center;
     }
 
     Containers::Vector< PointType > nabla_h ( verticesCount );
@@ -160,9 +159,9 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
 
         for( int j = 0; j < 3; j++ )
         {
-        int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
-        nabla[ globalPointIdx ] += grad;
-        nabla_h[ globalPointIdx ] += grad_h;
+            int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
+            nabla[ globalPointIdx ] += grad;
+            nabla_h[ globalPointIdx ] += grad_h;
         }
     };
     mesh.template forAll< MeshType::getMeshDimension() >( get_nabla_h );
@@ -197,17 +196,15 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
 
         for( int j = 0; j < 3; j++ )
         {
-        int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
-        nabla_eps[ globalPointIdx ] += grad;
-        nabla_h_eps[ globalPointIdx ] += grad_h;
+            int globalPointIdx = cell.template getSubentityIndex< 0 >( j );
+            nabla_eps[ globalPointIdx ] += grad;
+            nabla_h_eps[ globalPointIdx ] += grad_h;
         }
     };
 
 
     // computing L(mesh)
     double loss = L< PointType >( nabla_h, nabla );
-
-    std::cout << "L = " << loss << "\n";
 
     // give the points vector value of respective vertices
     Containers::Vector< PointType > nabla_mesh( verticesCount );
@@ -235,23 +232,37 @@ bool nablaDef( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& fileN
     };
     mesh.template forAll< 0 >( kernel );
 
-    std::cout << "nabla L = " << nabla_mesh << "\n";
-
     Containers::Array< double > nabla_arr( 3 * verticesCount );
     nabla_arr = 0;
     for( int i = 0; i < 3 * verticesCount; i += 3 )
     {
         nabla_arr[ i ] = nabla_mesh[ i / 3 ][ 0 ];
         nabla_arr[ i + 1 ] = nabla_mesh[ i / 3 ][ 1 ];
-        nabla_arr[ i + 2 ] = 0; // redundant
     }
+
+    auto descent = [ &mesh, &nabla_mesh ] ( GlobalIndexType i ) mutable
+    {
+        mesh.getPoints()[ i ] -= 1e-4 * nabla_mesh[ i ]; // TODO change parameter
+    };
+    mesh.template forInterior< 0 >( descent );
 
     // writing the computed gradient into a new mesh
     using VTKWriter = Meshes::Writers::VTKWriter< MeshType >;
-    std::ofstream out = std::ofstream( "defGrads.vtk" );
+    std::ofstream out = std::ofstream( "autoGrads.vtk" );
     VTKWriter writer = VTKWriter( out );
     writer.template writeEntities< MeshType::getMeshDimension() >( mesh );
     writer.writePointData( nabla_arr, "meshGrads", 3 );
+
+    nabla_h = 0;
+    nabla = 0;
+    mesh.template forAll< MeshType::getMeshDimension() >( get_nabla_h );
+    double new_loss = L< PointType >( nabla_h, nabla );
+
+    double improvement = loss - new_loss;
+    
+    std::cout << "L(initial mesh) = " << loss << "\n"
+              << "L(updated mesh) = " << new_loss << "\n"
+              << "\nimprovement of L: " << improvement << "\n\n";
 
     std::cout << "OK" << "\n";
     return true;
