@@ -71,8 +71,8 @@ bool breakMesh( Mesh< MeshConfig, Devices::Host >& mesh, const std::string& file
 
     auto breakMesh = [ &mesh, &minL ] ( GlobalIndexType i )  mutable
     {
-        mesh.getPoints()[ i ][ 0 ] += P * minL * ((double) rand() / (RAND_MAX));
-        mesh.getPoints()[ i ][ 1 ] += P * minL * ((double) rand() / (RAND_MAX));
+        mesh.getPoints()[ i ][ 0 ] += P * minL * ( ((double) rand() / (RAND_MAX)) * 2 - 1 );
+        mesh.getPoints()[ i ][ 1 ] += P * minL * ( ((double) rand() / (RAND_MAX)) * 2 - 1 );
     };
     mesh.template forInterior< 0 >( breakMesh );
 
